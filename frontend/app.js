@@ -721,6 +721,7 @@ window.adminEditContribution = async function(contrib_id){
   }catch(e){
     alert(e.message);
   }
+};
 
 
 window.adminEditDepense = async function(depense_id){
@@ -772,8 +773,6 @@ window.adminEditDepense = async function(depense_id){
   }catch(e){
     alert(e.message);
   }
-};
-
 };
 
 

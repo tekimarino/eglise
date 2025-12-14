@@ -1171,6 +1171,9 @@ def create_contribution(payload: ContributionIn, user=Depends(current_user_dep))
             raise HTTPException(status_code=400, detail="member_id requis pour l'admin (choisir un membre).")
 
     names = get_member_label(member_id)
+    # Evite les erreurs 500 si les variables nom/prenoms ne sont pas définies
+    nom = names.get("nom", "")
+    prenoms = names.get("prenoms", "")
     cid = "c_" + uuid.uuid4().hex[:10]
     append_csv_row(
         CONTRIB_CSV,
