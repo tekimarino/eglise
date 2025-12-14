@@ -1,0 +1,187 @@
+/* V4 - UI claire, lisible, moderne */
+:root{
+  --bg:#f6f8fc;
+  --surface:#ffffff;
+  --surface-2:#fbfcff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:#e2e8f0;
+  --shadow:0 10px 25px rgba(15,23,42,.08);
+  --primary:#2563eb;
+  --primary-hover:#1d4ed8;
+  --danger:#dc2626;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  background:var(--bg);
+  color:var(--text);
+}
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.tiny{font-size:12px}
+#app{min-height:100vh;display:flex;flex-direction:column}
+
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.86);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  padding:14px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  font-weight:900;font-size:18px;letter-spacing:.2px;
+}
+.brand::before{content:"⛪";font-size:18px}
+.userbox{display:flex;gap:10px;align-items:center;font-weight:700}
+.container{width:100%;max-width:1180px;margin:22px auto;padding:0 16px;flex:1}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:18px;
+  margin-bottom:16px;
+}
+.subcard{
+  background:linear-gradient(180deg,#fff,#fbfcff);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+  margin:12px 0;
+}
+h2{margin:0 0 10px;font-size:22px}
+h3{margin:0 0 10px;font-size:16px}
+
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.head-row .right{display:flex;gap:10px;align-items:center}
+
+label{display:block;margin:10px 0 6px;color:var(--muted);font-size:13px;font-weight:800}
+input,select,textarea{
+  width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text);outline:none;
+  transition:border .15s ease, box-shadow .15s ease;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:rgba(37,99,235,.6);
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+.btn{
+  border:none;cursor:pointer;font-weight:900;border-radius:12px;padding:10px 14px;
+  background:var(--primary);color:#fff;
+  transition:transform .05s ease, background .15s ease, box-shadow .15s ease;
+  box-shadow:0 10px 20px rgba(37,99,235,.18);
+}
+.btn:hover{background:var(--primary-hover)}
+.btn:active{transform:translateY(1px)}
+.btn.secondary{background:#fff;color:var(--text);border:1px solid var(--border);box-shadow:none}
+.btn.secondary:hover{background:#f3f6ff}
+.btn.danger{background:var(--danger);box-shadow:0 10px 20px rgba(220,38,38,.16)}
+.btn.danger:hover{background:#b91c1c}
+.btn.small{padding:8px 10px;border-radius:10px}
+
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+
+.tabs{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  padding:10px;border-radius:16px;
+  background:rgba(37,99,235,.06);
+  border:1px solid rgba(37,99,235,.12);
+  margin-bottom:14px;
+}
+.tab{
+  appearance:none;border:1px solid transparent;background:rgba(255,255,255,.90);
+  color:var(--text);padding:10px 14px;border-radius:999px;cursor:pointer;
+  font-weight:900;letter-spacing:.2px;
+  transition:transform .05s ease, background .15s ease, border .15s ease, box-shadow .15s ease;
+  box-shadow:0 8px 16px rgba(15,23,42,.06);
+}
+.tab:hover{background:#fff;border-color:rgba(37,99,235,.18);box-shadow:0 12px 22px rgba(15,23,42,.10)}
+.tab:active{transform:translateY(1px)}
+.tab.active{background:var(--primary);color:#fff;box-shadow:0 14px 26px rgba(37,99,235,.25)}
+
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(3,1fr)}
+.kpi{
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:linear-gradient(180deg,#ffffff,#fbfcff);
+  padding:14px;
+}
+.kpi-label{color:var(--muted);font-size:13px;font-weight:900}
+.kpi-value{margin-top:6px;font-size:26px;font-weight:900}
+
+.pill{
+  font-size:12px;font-weight:900;padding:6px 10px;border-radius:999px;
+  background:rgba(37,99,235,.10);border:1px solid rgba(37,99,235,.18);color:var(--text);
+}
+.row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+.col{min-width:0}
+
+.form-grid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:12px;
+  align-items:end;
+}
+.form-grid .full{grid-column:1/-1}
+
+.filters{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  margin: 14px 0 10px;padding: 10px;background: #f7f9ff;
+  border: 1px dashed rgba(37,99,235,.25);border-radius: 14px;
+}
+.filters input{max-width:190px}
+
+.table{
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:auto;
+  background:#fff;
+}
+.table table{width:100%;border-collapse:collapse;min-width:720px}
+.table.no-scroll{overflow-x:hidden;}
+.table.no-scroll table{min-width:unset;}
+.table.no-scroll th,.table.no-scroll td{white-space:normal;}
+.table th,.table td{
+  padding:11px 12px;border-bottom:1px solid var(--border);
+  text-align:left;font-size:13.5px;vertical-align:top;white-space:nowrap;
+}
+.table th{background:#f7f9ff;color:var(--muted);font-weight:900;position:sticky;top:0}
+.table tbody tr:hover td{background:#f9fbff}
+
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900;
+  background:rgba(37,99,235,.10);border:1px solid rgba(37,99,235,.18)}
+.badge.red{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.2)}
+.badge.green{background:rgba(22,163,74,.10);border-color:rgba(22,163,74,.2)}
+
+.error{
+  margin-top:10px;padding:10px 12px;border-radius:12px;
+  background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);
+  color:var(--danger);font-weight:900;
+}
+
+.footer{
+  padding:16px;text-align:center;color:var(--muted);
+  border-top:1px solid var(--border);
+  background:rgba(255,255,255,.65);
+}
+
+/* Hide admin-only items when member */
+body.role-member .admin-only{display:none !important;}
+/* Hide member-only when admin (not used yet) */
+body.role-admin .member-only{display:none !important;}
+
+@media (max-width: 960px){
+  .kpis{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:repeat(2,1fr)}
+  .table table{min-width:640px}
+}

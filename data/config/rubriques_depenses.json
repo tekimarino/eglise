@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "code": "FONCT",
+      "label": "Fonctionnement",
+      "active": true
+    },
+    {
+      "code": "AIDE",
+      "label": "Aide sociale",
+      "active": true
+    },
+    {
+      "code": "TRAVAUX",
+      "label": "Travaux",
+      "active": true
+    },
+    {
+      "code": "MISSION",
+      "label": "Mission",
+      "active": true
+    },
+    {
+      "code": "AUTRE",
+      "label": "Autre",
+      "active": true
+    }
+  ]
+}

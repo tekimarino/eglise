@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "code": "ADMIN",
+      "label": "Administrateur",
+      "permissions": [
+        "*"
+      ]
+    },
+    {
+      "code": "MEMBRE",
+      "label": "Membre",
+      "permissions": [
+        "contrib:read",
+        "contrib:create",
+        "reports:read",
+        "exports:create"
+      ]
+    }
+  ]
+}

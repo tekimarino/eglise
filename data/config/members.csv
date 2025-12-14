@@ -1,0 +1,6 @@
+member_id,nom,prenoms,email,residence,telephone,fonction,active,created_at
+m_0471c8f700,Doe,Jane,,Abidjan,0700,Choriste,1,2025-12-13T16:04:22Z
+m_209460d196,K,Armel,,Yop,123,Diacre,1,2025-12-13T16:04:22Z
+m_158c857e80,Test,User,test@example.com,X,123,Y,1,2025-12-13T20:31:57Z
+m_be8076c267,Toto,A,toto@ex.com,,,,1,2025-12-13T20:34:21Z
+m_0b864fa50c,TEKI,MARINO,marinoteki50@gmail.com,Abidjan,4375221730,Comptable,1,2025-12-13T23:16:22Z

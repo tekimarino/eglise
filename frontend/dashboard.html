@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Tableau de bord membre</title>
+<style>
+body{font-family:Arial;background:#f5f7fb;margin:0;padding:20px}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:20px}
+.cards{display:flex;gap:20px}
+.card h3{margin:0;color:#555}
+.card .value{font-size:32px;font-weight:bold}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+.container{max-width:1100px;margin:auto}
+nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+a{color:#2563eb;text-decoration:none;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="container">
+<nav>
+  <h2>Gestion Contributions</h2>
+  <div>
+    <a href="account.html">Mon compte</a>
+  </div>
+</nav>
+
+<div class="cards">
+  <div class="card">
+    <h3>Total sorties</h3>
+    <div class="value">300 000</div>
+  </div>
+  <div class="card">
+    <h3>Solde</h3>
+    <div class="value">300 000</div>
+  </div>
+</div>
+
+<div class="card">
+<h3>5 dernières sorties</h3>
+<table>
+<thead><tr><th>Date</th><th>Rubrique</th><th>Montant</th></tr></thead>
+<tbody>
+<tr><td>2025-12-13</td><td>Dîme</td><td>150 000</td></tr>
+<tr><td>2025-12-01</td><td>Offrandes</td><td>150 000</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</body>
+</html>

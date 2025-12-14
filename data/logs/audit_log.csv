@@ -1,0 +1,6 @@
+id,timestamp,user,action,entity,entity_id,details
+49709cf240e94e8e83b718869f2472aa,2025-12-13T10:58:42Z,jdoe,REGISTER,member,MBR-B5817232A9,{'self_register': True}
+3690faa7e45147dcb19d9ef7eb8fe9ea,2025-12-13T10:58:42Z,jdoe,CREATE,contribution,c831129666f84036a3cdfc1fc50c3705,"{'member_id': 'MBR-B5817232A9', 'montant': 5000.0}"
+9e8c07c8aea145f6bc8a5da681644030,2025-12-13T11:17:59Z,admin,UPDATE,user,jdoe,"{'role': 'MEMBRE', 'active': True}"
+361de69ef0374512bd97d983a9df55bd,2025-12-13T11:20:04Z,arkak,REGISTER,member,MBR-BDD760D61F,{'self_register': True}
+c9f0b3ddc53240648a5f3cec89641066,2025-12-13T11:21:24Z,admin,UPDATE,user,arkak,{'password': '060679'}

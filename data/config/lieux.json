@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "code": "PRINCIPALE",
+      "label": "Église principale",
+      "active": true
+    },
+    {
+      "code": "ANNEXE",
+      "label": "Annexe",
+      "active": true
+    },
+    {
+      "code": "CELLULE",
+      "label": "Cellule",
+      "active": true
+    },
+    {
+      "code": "AUTRE",
+      "label": "Autre",
+      "active": true
+    }
+  ]
+}

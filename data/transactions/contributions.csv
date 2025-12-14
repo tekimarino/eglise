@@ -1,0 +1,4 @@
+id,member_id,nom,prenoms,rubrique,lieu,montant,date,note,created_at,created_by
+c_6e24b53d94,m_0b864fa50c,TEKI,MARINO,Dîme,Temple principal,285000,2025-12-13,,2025-12-13T23:16:35Z,tekim
+c_ee272f7131,m_0b864fa50c,TEKI,MARINO,Offrandes,Temple principal,65000,2025-12-18,,2025-12-13T23:16:54Z,tekim
+c_6c79a81c82,m_0b864fa50c,TEKI,MARINO,Cotisations,Annexe,80000,2025-12-18,,2025-12-13T23:17:16Z,tekim

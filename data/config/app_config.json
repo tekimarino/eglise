@@ -1,0 +1,14 @@
+{
+  "rubriques": [
+    "Dîme",
+    "Offrandes",
+    "Cotisations",
+    "Autre"
+  ],
+  "lieux": [
+    "Temple principal",
+    "Annexe",
+    "En ligne"
+  ],
+  "currency": "XOF"
+}

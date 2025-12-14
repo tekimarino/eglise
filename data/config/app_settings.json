@@ -1,0 +1,8 @@
+{
+  "app_name": "Gestion Contributions Église",
+  "currency": "XOF",
+  "timezone": "Africa/Abidjan",
+  "allow_delete": false,
+  "edit_mode": "amendment",
+  "backup_retention_days": 30
+}

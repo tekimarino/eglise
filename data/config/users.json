@@ -1,0 +1,48 @@
+{
+  "users": [
+    {
+      "id": "u_admin",
+      "username": "admin",
+      "display_name": "Administrateur principal",
+      "role": "ADMIN",
+      "active": true,
+      "member_id": null,
+      "salt": "xJPNOZ_8q5iNAwt7",
+      "password_hash": "f7837ffc490d2dd14396b8482a5ff9351d0bb112852d6e8020236aa70ca65f3a",
+      "created_at": "2025-12-13T11:05:09.979687Z"
+    },
+    {
+      "id": "u_104c72a1fe",
+      "username": "testuser1",
+      "display_name": "User Test",
+      "role": "MEMBRE",
+      "active": true,
+      "member_id": "m_158c857e80",
+      "salt": "1b48fba6b6cc4b49",
+      "password_hash": "d3a7cfb928a69762295fde1831a5863f08d6f058869c04da87315771898b9ed4",
+      "created_at": "2025-12-13T20:31:57Z"
+    },
+    {
+      "id": "u_3d963e273b",
+      "username": "totoa",
+      "display_name": "A Toto",
+      "role": "MEMBRE",
+      "active": true,
+      "member_id": "m_be8076c267",
+      "salt": "361be34682d04965",
+      "password_hash": "05c2cb84762ce7f275b137466619da6225269478dc981e3c870ae370bef5116a",
+      "created_at": "2025-12-13T20:34:21Z"
+    },
+    {
+      "id": "u_bb9cc02aa6",
+      "username": "tekim",
+      "display_name": "MARINO TEKI",
+      "role": "MEMBRE",
+      "active": true,
+      "member_id": "m_0b864fa50c",
+      "salt": "d13c4678dc884342",
+      "password_hash": "38f36fd6633812564b9cf1fd01eba5625892196e7c78814fd9003fd9defc7e7f",
+      "created_at": "2025-12-13T23:16:22Z"
+    }
+  ]
+}

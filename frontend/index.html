@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestion Contributions</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Gestion Contributions</div>
+    <div class="userbox hidden" id="userBox">
+      <span id="userName"></span>
+      <button class="btn secondary small member-only" id="btnMyAccount">Mon compte</button>
+      <button class="btn secondary small" id="btnLogout">Déconnexion</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- LOGIN -->
+    <section class="card" id="loginView">
+      <h2>Connexion</h2>
+      <p class="muted">Admin principal : <b>admin</b> / <b>Admin123!</b></p>
+
+      <label>Nom d'utilisateur</label>
+      <input id="loginUsername" autocomplete="username"/>
+
+      <label>Mot de passe</label>
+      <input id="loginPassword" type="password" autocomplete="current-password"/>
+
+      <div class="actions">
+        <button class="btn" id="btnLogin">Se connecter</button>
+        <button class="btn secondary" id="btnOpenRegister">Créer mon compte</button>
+        <span class="muted" id="loginHint"></span>
+      </div>
+      <div class="error hidden" id="loginError"></div>
+    </section>
+
+    <!-- REGISTER -->
+    <section class="card hidden" id="registerView">
+      <div class="head-row">
+        <h2>Créer un compte membre</h2>
+        <button class="btn secondary small" id="btnCloseRegister">Retour</button>
+      </div>
+      <p class="muted">Option A : compte actif immédiatement.</p>
+      <div class="form-grid">
+        <div><label>Nom</label><input id="r_nom" /></div>
+        <div><label>Prénoms</label><input id="r_prenoms" /></div>
+        <div><label>Email</label><input id="r_email" type="email" /></div>
+        <div><label>Résidence</label><input id="r_residence" /></div>
+        <div><label>Téléphone</label><input id="r_telephone" /></div>
+        <div><label>Fonction</label><input id="r_fonction" /></div>
+        <div><label>Nom d'utilisateur</label><input id="r_username" /></div>
+        <div><label>Mot de passe</label><input id="r_password" type="password" /></div>
+        <div class="full actions">
+          <button class="btn" id="btnRegister">Créer mon compte</button>
+          <span class="muted" id="r_status"></span>
+        </div>
+      </div>
+      <div class="error hidden" id="r_error"></div>
+    </section>
+
+    <!-- APP -->
+    <section class="hidden" id="appView">
+      <div class="tabs" id="tabs"></div>
+
+      <!-- Dashboard -->
+      <section class="card" id="dashboardView">
+        <div class="head-row">
+          <h2>Tableau de bord</h2>
+          <div class="right">
+            <button class="btn secondary small" id="btnRefreshDash">Rafraîchir</button>
+          </div>
+        </div>
+
+        <div class="grid kpis">
+          <div class="kpi" id="kpiBoxEntrees">
+            <div class="kpi-label" id="kpiEntreesLabel">Total entrées</div>
+            <div class="kpi-value" id="kpiEntrees">0</div>
+          </div>
+          <div class="kpi" id="kpiBoxSorties">
+            <div class="kpi-label" id="kpiSortiesLabel">Total sorties</div>
+            <div class="kpi-value" id="kpiSorties">0</div>
+          </div>
+          <div class="kpi" id="kpiBoxSolde">
+            <div class="kpi-label" id="kpiSoldeLabel">Solde</div>
+            <div class="kpi-value" id="kpiSolde">0</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <div class="col">
+            <div class="head-row">
+              <h3 id="lastEntreesTitle">Dernières entrées</h3>
+              <span class="pill">5 dernières</span>
+            </div>
+            <div class="table" id="lastEntreesTableWrap"><table id="lastEntreesTbl"></table></div>
+          </div>
+          <div class="col admin-only">
+            <div class="head-row">
+              <h3>Dernières dépenses</h3>
+              <span class="pill">5 dernières</span>
+            </div>
+            <div class="table"><table id="lastDepensesTbl"></table></div>
+          </div>
+        </div>
+
+      </section>
+
+<!-- Mon compte -->
+<section class="card hidden" id="accountView">
+  <div class="head-row">
+    <h2>Mon compte</h2>
+    <div class="right">
+      <button class="btn secondary small" id="btnAccountReload">Rafraîchir</button>
+    </div>
+  </div>
+
+  <div class="form-grid" id="accountFormGrid">
+    <div><label>Nom d'utilisateur</label><input id="mc_username" disabled /></div>
+    <div><label>Email</label><input id="mc_email" type="email" /></div>
+    <div><label>Nom</label><input id="mc_nom" /></div>
+    <div><label>Prénoms</label><input id="mc_prenoms" /></div>
+    <div><label>Résidence</label><input id="mc_residence" /></div>
+    <div><label>Téléphone</label><input id="mc_telephone" /></div>
+    <div><label>Fonction</label><input id="mc_fonction" /></div>
+    <div><label>Nouveau mot de passe (optionnel)</label><input id="mc_password" type="password" placeholder="Laisse vide si inchangé" /></div>
+
+    <div class="full actions">
+      <button class="btn" id="btnAccountSave">Enregistrer</button>
+      <button class="btn secondary" id="btnAccountClose">Fermer</button>
+      <span class="muted" id="mc_status"></span>
+    </div>
+  </div>
+
+  <div class="error hidden" id="mc_error"></div>
+</section>
+
+      <!-- Contributions -->
+      <section class="card hidden" id="contribView">
+        <div class="head-row">
+          <h2 id="contribTitle">Contributions</h2>
+          <div class="right">
+            <button class="btn secondary small" id="btnReloadContrib">Rafraîchir</button>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3 id="contribFormTitle">Enregistrer une contribution</h3>
+          <div class="form-grid">
+            <div class="admin-only">
+              <label>Membre</label>
+              <select id="c_member"></select>
+              <div class="muted tiny">Admin : choisir un membre pour enregistrer la contribution.</div>
+            </div>
+            <div>
+              <label>Rubrique</label>
+              <select id="c_rubrique"></select>
+            </div>
+            <div>
+              <label>Lieu</label>
+              <select id="c_lieu"></select>
+            </div>
+            <div>
+              <label>Montant</label>
+              <input id="c_montant" type="number" min="500" step="1" inputmode="numeric" required />
+            </div>
+            <div>
+              <label>Date</label>
+              <input id="c_date" type="date" />
+            </div>
+            <div class="full">
+              <label>Note</label>
+              <input id="c_note" placeholder="Optionnel" />
+            </div>
+            <div class="full actions">
+              <button class="btn" id="btnAddContrib">Enregistrer</button>
+              <span class="muted" id="c_status"></span>
+            </div>
+          </div>
+          <div class="error hidden" id="c_error"></div>
+        </div>
+
+        <div class="filters">
+          <strong>Filtres</strong>
+          <input id="c_q" placeholder="Recherche..." />
+          <input id="c_from" type="date" />
+          <input id="c_to" type="date" />
+          <button class="btn secondary small" id="btnFilterContrib">Appliquer</button>
+          <button class="btn secondary small" id="btnClearContrib">Reset</button>
+        </div>
+
+        <div class="table"><table id="contribTbl"></table></div>
+      </section>
+
+      <!-- Depenses (admin only) -->
+      <section class="card hidden" id="depensesView">
+        <div class="head-row">
+          <h2>Dépenses</h2>
+          <div class="right">
+            <button class="btn secondary small" id="btnReloadDep">Rafraîchir</button>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>Ajouter une dépense</h3>
+          <div class="form-grid">
+            <div><label>Bénéficiaire</label><input id="d_beneficiaire" /></div>
+            <div><label>Motif</label><input id="d_motif" /></div>
+            <div><label>Lieu</label><input id="d_lieu" /></div>
+            <div><label>Montant</label><input id="d_montant" type="number" min="500" step="1" inputmode="numeric" required /></div>
+            <div><label>Date</label><input id="d_date" type="date" /></div>
+            <div class="full actions">
+              <button class="btn" id="btnAddDep">Enregistrer</button>
+              <span class="muted" id="d_status"></span>
+            </div>
+          </div>
+          <div class="error hidden" id="d_error"></div>
+        </div>
+
+        <div class="subcard">
+          <h3>Uploader un justificatif</h3>
+          <div class="form-grid">
+            <div><label>ID dépense</label><input id="j_depense_id" placeholder="Ex: d_xxxxx" /></div>
+            <div class="full"><label>Fichier</label><input id="j_file" type="file" /></div>
+            <div class="full actions">
+              <button class="btn" id="btnUploadJustif">Uploader</button>
+              <span class="muted" id="j_status"></span>
+            </div>
+          </div>
+          <div class="error hidden" id="j_error"></div>
+        </div>
+
+        <div class="table"><table id="depTbl"></table></div>
+      </section>
+
+      <!-- Rapports -->
+      <section class="card hidden" id="rapportsView">
+        <div class="head-row">
+          <h2>Rapports</h2>
+          <div class="right">
+            <button class="btn secondary small" id="btnReloadReports">Rafraîchir</button>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>Exports</h3>
+          <div class="actions">
+            <button class="btn" id="btnExportPDF">Exporter PDF</button>
+            <button class="btn secondary" id="btnExportXLSX">Exporter Excel</button>
+            <span class="muted" id="x_status"></span>
+          </div>
+          <div class="error hidden" id="x_error"></div>
+        </div>
+
+        <div class="grid kpis">
+          <div class="kpi"><div class="kpi-label">Total entrées</div><div class="kpi-value" id="r_entrees">0</div></div>
+          <div class="kpi admin-only"><div class="kpi-label">Total sorties</div><div class="kpi-value" id="r_sorties">0</div></div>
+          <div class="kpi admin-only"><div class="kpi-label">Solde</div><div class="kpi-value" id="r_solde">0</div></div>
+        </div>
+      </section>
+
+      <!-- Admin: Membres & comptes -->
+      <section class="card hidden" id="adminAccountsView">
+        <div class="head-row">
+          <h2>Membres & Comptes</h2>
+          <div class="right">
+            <button class="btn secondary small" id="btnReloadAccounts">Rafraîchir</button>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>Créer un compte membre</h3>
+          <p class="muted tiny">Formulaire demandé : Nom, Prénoms, Résidence, Téléphone, Fonction, Username, Mot de passe, Actif.</p>
+          <div class="form-grid">
+            <div><label>Nom</label><input id="a_nom"/></div>
+            <div><label>Prénoms</label><input id="a_prenoms"/></div>
+            <div><label>Email</label><input id="a_email" type="email"/></div>
+            <div><label>Résidence</label><input id="a_residence"/></div>
+            <div><label>Téléphone</label><input id="a_telephone"/></div>
+            <div><label>Fonction</label><input id="a_fonction"/></div>
+            <div><label>Nom d'utilisateur</label><input id="a_username"/></div>
+            <div><label>Mot de passe</label><input id="a_password" type="password"/></div>
+            <div><label>Actif</label>
+              <select id="a_active">
+                <option value="true">Oui</option>
+                <option value="false">Non</option>
+              </select>
+            </div>
+            <div class="full actions">
+              <button class="btn" id="btnAdminCreateAccount">Créer</button>
+              <span class="muted" id="a_status"></span>
+            </div>
+          </div>
+          <div class="error hidden" id="a_error"></div>
+        </div>
+
+<div class="subcard admin-only">
+  <h3>Paramètres (rubriques & lieux)</h3>
+  <p class="muted tiny">Une valeur par ligne. Ces listes alimentent les menus déroulants (motifs/rubriques et lieux).</p>
+  <div class="form-grid">
+    <div class="full">
+      <label>Rubriques (ex : Dîme, Offrandes, Cotisations…)</label>
+      <textarea id="cfg_rubriques" rows="5" placeholder="Dîme&#10;Offrandes&#10;Cotisations"></textarea>
+    </div>
+    <div class="full">
+      <label>Lieux</label>
+      <textarea id="cfg_lieux" rows="4" placeholder="Temple&#10;Cellule&#10;En ligne"></textarea>
+    </div>
+    <div>
+      <label>Devise</label>
+      <input id="cfg_currency" placeholder="XOF"/>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="btnSaveConfig">Enregistrer</button>
+      <span class="muted" id="cfg_status"></span>
+    </div>
+  </div>
+  <div class="error hidden" id="cfg_error"></div>
+</div>
+
+        <div class="row">
+          <div class="col">
+            <h3>Membres</h3>
+            <div class="table"><table id="membersTbl"></table></div>
+          </div>
+          <div class="col">
+            <h3>Utilisateurs</h3>
+            <div class="table"><table id="usersTbl"></table></div>
+          </div>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <footer class="footer">CSV/JSON only • FastAPI + SPA</footer>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

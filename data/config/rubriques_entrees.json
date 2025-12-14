@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "code": "DIME",
+      "label": "Dîme",
+      "active": true
+    },
+    {
+      "code": "OFFRANDE",
+      "label": "Offrandes",
+      "active": true
+    },
+    {
+      "code": "COTISATION",
+      "label": "Cotisations",
+      "active": true
+    },
+    {
+      "code": "DON",
+      "label": "Don",
+      "active": true
+    },
+    {
+      "code": "AUTRE",
+      "label": "Autre",
+      "active": true
+    }
+  ]
+}
