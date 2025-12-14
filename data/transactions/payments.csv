@@ -1,0 +1,1 @@
+payment_id,transaction_id,kind,member_id,amount,currency,status,contrib_id,payment_url,payload_json,cinetpay_raw,created_at,updated_at

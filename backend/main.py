@@ -7,12 +7,15 @@ import os
 import uuid
 import hashlib
 import datetime
+import hmac
+
+import requests
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import jwt
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StrictInt
 
@@ -31,6 +34,8 @@ APP_CONFIG_JSON = CFG_DIR / "app_config.json"
 MEMBERS_CSV = CFG_DIR / "members.csv"
 CONTRIB_CSV = TX_DIR / "contributions.csv"
 DEPENSES_CSV = TX_DIR / "depenses.csv"
+PAYMENTS_CSV = TX_DIR / "payments.csv"
+
 ITEMS_CSV = INV_DIR / "items.csv"
 MOVES_CSV = INV_DIR / "moves.csv"
 
@@ -38,10 +43,20 @@ JWT_SECRET = os.environ.get("APP_SECRET", "CHANGE_ME_DEV_SECRET")
 JWT_ALGO = "HS256"
 TOKEN_TTL_HOURS = 24
 
+CINETPAY_APIKEY = os.environ.get("CINETPAY_APIKEY", "").strip()
+CINETPAY_SITE_ID = os.environ.get("CINETPAY_SITE_ID", "").strip()
+CINETPAY_SECRET_KEY = os.environ.get("CINETPAY_SECRET_KEY", "").strip()
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").strip()
+CINETPAY_CHANNELS = "MOBILE_MONEY"
+CINETPAY_CURRENCY = "XOF"
+CINETPAY_ENABLED = bool(CINETPAY_APIKEY and CINETPAY_SITE_ID)
+
 ROLE_ADMIN = "ADMIN"
 ROLE_MEMBER = "MEMBRE"
 
 MEMBERS_HEADERS = ["member_id","nom","prenoms","email","residence","telephone","fonction","active","created_at"]
+PAYMENTS_HEADERS = ["payment_id","transaction_id","kind","member_id","amount","currency","status","contrib_id","payment_url","payload_json","cinetpay_raw","created_at","updated_at"]
+
 
 def norm_username(u: str) -> str:
     """Normalize usernames for reliable lookup (trim + lower)."""
@@ -100,6 +115,7 @@ def ensure_csv_headers(path: Path, headers: List[str]) -> None:
 # Ensure files exist
 ensure_csv_headers(MEMBERS_CSV, MEMBERS_HEADERS)
 ensure_csv(CONTRIB_CSV, ["id","member_id","nom","prenoms","rubrique","lieu","montant","date","note","created_at","created_by"])
+ensure_csv_headers(PAYMENTS_CSV, PAYMENTS_HEADERS)
 ensure_csv(DEPENSES_CSV, ["id","beneficiaire","motif","lieu","montant","date","created_at","created_by","justificatif_path"])
 ensure_csv(ITEMS_CSV, ["id","nom","categorie","stock","created_at"])
 ensure_csv(MOVES_CSV, ["id","item_id","item_nom","type","quantite","motif","date","created_at","created_by"])
@@ -150,6 +166,161 @@ def write_csv_all(path: Path, headers: List[str], rows: List[Dict[str, Any]]) ->
         for r in rows:
             clean = {k: ("" if r.get(k) is None else str(r.get(k))) for k in headers}
             w.writerow(clean)
+
+
+# ---------------------------
+# CinetPay helpers
+# ---------------------------
+def get_public_base_url(request: Request) -> str:
+    """Return the public base url (scheme://host) for building absolute callback URLs."""
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL.rstrip("/")
+    # try proxy headers (Render / reverse proxies)
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}".rstrip("/")
+
+def cinetpay_init(transaction_id: str, amount: int, description: str, notify_url: str, return_url: str, customer: Dict[str, str]) -> Dict[str, Any]:
+    """Call CinetPay init API and return parsed JSON."""
+    if not CINETPAY_ENABLED:
+        raise HTTPException(status_code=500, detail="CinetPay non configuré (CINETPAY_APIKEY/CINETPAY_SITE_ID).")
+    payload = {
+        "apikey": CINETPAY_APIKEY,
+        "site_id": CINETPAY_SITE_ID,
+        "transaction_id": transaction_id,
+        "amount": amount,
+        "currency": CINETPAY_CURRENCY,
+        "description": description,
+        "notify_url": notify_url,
+        "return_url": return_url,
+        "channels": CINETPAY_CHANNELS,
+        "lang": "fr",
+    }
+    # optional customer fields
+    for k in ["customer_name","customer_surname","customer_email","customer_phone_number","customer_address","customer_city","customer_country"]:
+        v = (customer.get(k) or "").strip()
+        if v:
+            payload[k] = v
+    try:
+        r = requests.post("https://api-checkout.cinetpay.com/v2/payment", json=payload, timeout=30)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erreur de connexion à CinetPay: {e}")
+    try:
+        out = r.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail=f"Réponse CinetPay invalide (HTTP {r.status_code}).")
+    if r.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Erreur CinetPay (HTTP {r.status_code}): {out}")
+    return out
+
+def cinetpay_check(transaction_id: str) -> Dict[str, Any]:
+    if not CINETPAY_ENABLED:
+        raise HTTPException(status_code=500, detail="CinetPay non configuré.")
+    payload = {"apikey": CINETPAY_APIKEY, "site_id": CINETPAY_SITE_ID, "transaction_id": transaction_id}
+    try:
+        r = requests.post("https://api-checkout.cinetpay.com/v2/payment/check", json=payload, timeout=30)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erreur de connexion à CinetPay: {e}")
+    try:
+        out = r.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail=f"Réponse CinetPay invalide (HTTP {r.status_code}).")
+    return out
+
+def load_payments() -> List[Dict[str, Any]]:
+    return read_csv_dicts(PAYMENTS_CSV)
+
+def save_payments(rows: List[Dict[str, Any]]) -> None:
+    write_csv_all(PAYMENTS_CSV, PAYMENTS_HEADERS, rows)
+
+def upsert_payment(row: Dict[str, Any]) -> None:
+    rows = load_payments()
+    found = False
+    for i, r in enumerate(rows):
+        if r.get("transaction_id") == row.get("transaction_id"):
+            rows[i] = {**r, **row}
+            found = True
+            break
+    if not found:
+        rows.append(row)
+    save_payments(rows)
+
+def find_payment(transaction_id: str) -> Optional[Dict[str, Any]]:
+    for r in load_payments():
+        if r.get("transaction_id") == transaction_id:
+            return r
+    return None
+
+def create_contribution_from_payment(payment: Dict[str, Any], created_by: str) -> str:
+    """Idempotently create contribution once payment is ACCEPTED."""
+    if payment.get("contrib_id"):
+        return payment["contrib_id"]
+    member_id = payment.get("member_id") or ""
+    if not member_id:
+        raise HTTPException(status_code=400, detail="Paiement sans member_id.")
+    payload = {}
+    try:
+        payload = json.loads(payment.get("payload_json") or "{}")
+    except Exception:
+        payload = {}
+    mr = get_member_row(member_id) or {}
+    nom = mr.get("nom","")
+    prenoms = mr.get("prenoms","")
+    cid = "c_" + uuid.uuid4().hex[:10]
+    append_csv_row(
+        CONTRIB_CSV,
+        {
+            "id": cid,
+            "member_id": member_id,
+            "nom": nom,
+            "prenoms": prenoms,
+            "rubrique": payload.get("rubrique",""),
+            "lieu": payload.get("lieu",""),
+            "montant": int(payload.get("montant") or 0),
+            "date": payload.get("date",""),
+            "note": payload.get("note",""),
+            "created_at": utc_now(),
+            "created_by": created_by,
+        },
+        ["id","member_id","nom","prenoms","rubrique","lieu","montant","date","note","created_at","created_by"]
+    )
+    # update payment with contrib_id
+    upsert_payment({
+        "transaction_id": payment.get("transaction_id",""),
+        "contrib_id": cid,
+        "updated_at": utc_now(),
+    })
+    return cid
+
+def sync_payment_status(transaction_id: str, actor_username: str) -> Dict[str, Any]:
+    payment = find_payment(transaction_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Transaction introuvable.")
+    out = cinetpay_check(transaction_id)
+    # expected: out["data"]["status"] == "ACCEPTED"
+    status = ""
+    try:
+        status = (out.get("data") or {}).get("status","")
+    except Exception:
+        status = ""
+    new_status = status or payment.get("status","")
+    upd = {
+        "transaction_id": transaction_id,
+        "status": new_status,
+        "cinetpay_raw": json.dumps(out, ensure_ascii=False),
+        "updated_at": utc_now(),
+    }
+    upsert_payment({**payment, **upd})
+    payment = find_payment(transaction_id) or {**payment, **upd}
+    contrib_id = payment.get("contrib_id")
+    if (new_status == "ACCEPTED") and not contrib_id:
+        contrib_id = create_contribution_from_payment(payment, actor_username)
+        payment = find_payment(transaction_id) or payment
+    return {
+        "transaction_id": transaction_id,
+        "status": payment.get("status",""),
+        "contrib_id": payment.get("contrib_id",""),
+    }
 
 # ---------------------------
 # Auth / password
@@ -779,6 +950,157 @@ def delete_user(user_id: str, user=Depends(current_user_dep)):
     return {"ok": True}
 
 # ---------------------------
+# Paiements (CinetPay)
+# ---------------------------
+
+@app.post("/api/payments/cinetpay/init-contribution")
+def init_contribution_payment(payload: ContributionIn, request: Request, user=Depends(current_user_dep)):
+    # Members only: admin can still create contributions without payment
+    if user["role"] != ROLE_MEMBER:
+        raise HTTPException(status_code=403, detail="Réservé aux membres.")
+    cfg = read_config()
+    if payload.rubrique not in cfg.get("rubriques", []):
+        raise HTTPException(status_code=400, detail="Rubrique invalide.")
+    if payload.lieu not in cfg.get("lieux", []):
+        raise HTTPException(status_code=400, detail="Lieu invalide.")
+
+    member_id = user.get("member_id")
+    if not member_id:
+        raise HTTPException(status_code=400, detail="Compte membre mal configuré (member_id manquant).")
+
+    base = get_public_base_url(request)
+    notify_url = f"{base}/api/payments/cinetpay/notify"
+    return_url = f"{base}/cinetpay/return"
+
+    transaction_id = "CONTR_" + uuid.uuid4().hex[:16]
+    # customer info
+    m = None
+    for r in read_csv_dicts(MEMBERS_CSV):
+        if r.get("member_id") == member_id:
+            m = r
+            break
+    customer = {
+        "customer_name": (m.get("nom") if m else ""),
+        "customer_surname": (m.get("prenoms") if m else ""),
+        "customer_email": (m.get("email") if m else ""),
+        "customer_phone_number": (m.get("telephone") if m else ""),
+        "customer_country": "CI",
+        "customer_city": (m.get("residence") if m else ""),
+        "customer_address": (m.get("residence") if m else ""),
+    }
+    description = f"Contribution {payload.rubrique}"
+
+    raw = cinetpay_init(
+        transaction_id=transaction_id,
+        amount=int(payload.montant),
+        description=description,
+        notify_url=notify_url,
+        return_url=return_url,
+        customer=customer,
+    )
+    data = raw.get("data") or {}
+    payment_url = data.get("payment_url") or data.get("payment_url") or data.get("payment_url")
+    if not payment_url:
+        # some APIs return payment_url inside data["payment_url"]
+        payment_url = data.get("payment_url") or data.get("payment_url")
+    if not payment_url:
+        raise HTTPException(status_code=502, detail=f"CinetPay n'a pas retourné payment_url: {raw}")
+
+    payment_row = {
+        "payment_id": "p_" + uuid.uuid4().hex[:10],
+        "transaction_id": transaction_id,
+        "kind": "contribution",
+        "member_id": member_id,
+        "amount": int(payload.montant),
+        "currency": CINETPAY_CURRENCY,
+        "status": "PENDING",
+        "contrib_id": "",
+        "payment_url": payment_url,
+        "payload_json": json.dumps({
+            "rubrique": payload.rubrique,
+            "lieu": payload.lieu,
+            "montant": int(payload.montant),
+            "date": payload.date,
+            "note": payload.note,
+        }, ensure_ascii=False),
+        "cinetpay_raw": json.dumps(raw, ensure_ascii=False),
+        "created_at": utc_now(),
+        "updated_at": utc_now(),
+    }
+    upsert_payment(payment_row)
+    return {"transaction_id": transaction_id, "payment_url": payment_url}
+
+
+@app.api_route("/api/payments/cinetpay/notify", methods=["GET","POST"])
+async def cinetpay_notify(request: Request):
+    # CinetPay pings GET to test availability. Always return 200.
+    if request.method == "GET":
+        return {"ok": True}
+
+    # accept form or json
+    form = {}
+    try:
+        form = dict(await request.form())
+    except Exception:
+        try:
+            form = await request.json()
+        except Exception:
+            form = {}
+
+    transaction_id = form.get("transaction_id") or form.get("cpm_trans_id") or form.get("cpm_trans_id ")
+    if not transaction_id:
+        return {"ok": True}
+    # Trigger a check (do not trust payload alone)
+    try:
+        sync_payment_status(transaction_id, actor_username="system")
+    except Exception:
+        # swallow errors: webhook retries
+        pass
+    return {"ok": True}
+
+
+@app.post("/api/payments/cinetpay/sync/{transaction_id}")
+def cinetpay_sync(transaction_id: str, user=Depends(current_user_dep)):
+    payment = find_payment(transaction_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Transaction introuvable.")
+    # member can only sync their own payment
+    if user["role"] == ROLE_MEMBER and (payment.get("member_id") != user.get("member_id")):
+        raise HTTPException(status_code=403, detail="Accès refusé.")
+    return sync_payment_status(transaction_id, actor_username=user.get("username","system"))
+
+
+@app.get("/api/payments/{transaction_id}")
+def get_payment(transaction_id: str, user=Depends(current_user_dep)):
+    payment = find_payment(transaction_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Transaction introuvable.")
+    if user["role"] == ROLE_MEMBER and (payment.get("member_id") != user.get("member_id")):
+        raise HTTPException(status_code=403, detail="Accès refusé.")
+    return {
+        "transaction_id": payment.get("transaction_id"),
+        "status": payment.get("status"),
+        "contrib_id": payment.get("contrib_id"),
+    }
+
+
+@app.api_route("/cinetpay/return", methods=["GET","POST"])
+async def cinetpay_return(request: Request):
+    # CinetPay returns transaction_id via GET or POST x-www-form-urlencoded
+    tx = request.query_params.get("transaction_id") or request.query_params.get("cpm_trans_id")
+    if not tx and request.method == "POST":
+        try:
+            form = dict(await request.form())
+            tx = form.get("transaction_id") or form.get("cpm_trans_id")
+        except Exception:
+            tx = None
+    # Redirect back to home so frontend can sync and refresh
+    if not tx:
+        return RedirectResponse(url="/", status_code=302)
+    return RedirectResponse(url=f"/?cinetpay_return=1&transaction_id={tx}", status_code=302)
+
+
+# ---------------------------
 # Contributions
 # ---------------------------
 def get_member_label(member_id: str) -> Dict[str, str]:
@@ -813,6 +1135,8 @@ def create_contribution(payload: ContributionIn, user=Depends(current_user_dep))
         member_id = user.get("member_id")
         if not member_id:
             raise HTTPException(status_code=400, detail="Compte membre mal configuré (member_id manquant).")
+        if CINETPAY_ENABLED:
+            raise HTTPException(status_code=400, detail="Paiement requis: utilisez le bouton de paiement pour enregistrer une contribution.")
     else:
         member_id = payload.member_id
         if not member_id:
@@ -825,8 +1149,8 @@ def create_contribution(payload: ContributionIn, user=Depends(current_user_dep))
         {
             "id": cid,
             "member_id": member_id,
-            "nom": names["nom"],
-            "prenoms": names["prenoms"],
+            "nom": nom,
+            "prenoms": prenoms,
             "rubrique": payload.rubrique,
             "lieu": payload.lieu,
             "montant": payload.montant,

@@ -329,6 +329,17 @@ async function addContribution(){
   };
 
   try{
+    // Membres: paiement CinetPay avant enregistrement
+    if (CURRENT.role !== "ADMIN"){
+      const r = await api("/payments/cinetpay/init-contribution", {method:"POST", body: JSON.stringify(payload)});
+      RETURN_TX = r.transaction_id;
+      localStorage.setItem("last_payment_tx", RETURN_TX);
+      setText("c_status","Redirection vers le paiement…");
+      window.location.href = r.payment_url;
+      return;
+    }
+
+    // Admin: enregistrement direct
     await api("/contributions", {method:"POST", body: JSON.stringify(payload)});
     setText("c_status","OK ✅");
     $("c_montant").value = "";
@@ -897,12 +908,58 @@ function wire(){
   if ($("btnSaveConfig")) $("btnSaveConfig").addEventListener("click", adminSaveConfig);
 }
 
+
+async function handlePaymentReturn(){
+  const params = new URLSearchParams(window.location.search);
+  const tx = params.get('transaction_id');
+  if (params.get('cinetpay_return') && tx){
+    RETURN_TX = tx;
+    localStorage.setItem('last_payment_tx', tx);
+    // nettoyer l'URL (éviter re-synchronisation au refresh)
+    window.history.replaceState({}, document.title, '/');
+  }else{
+    // si on a une transaction en attente stockée
+    const saved = localStorage.getItem('last_payment_tx');
+    if (saved) RETURN_TX = saved;
+  }
+}
+
+async function finalizePaymentIfNeeded(){
+  if (!RETURN_TX) return;
+  try{
+    const res = await api(`/payments/cinetpay/sync/${encodeURIComponent(RETURN_TX)}`, { method:'POST' });
+    if (res.status === 'ACCEPTED'){
+      alert('Paiement accepté ✅ Contribution enregistrée.');
+      localStorage.removeItem('last_payment_tx');
+      RETURN_TX = null;
+      await loadContributions();
+      renderContribTable();
+      await refreshDashboard();
+      await refreshReports();
+      showTab('tabDashboard');
+    } else if (res.status === 'REFUSED'){
+      alert('Paiement refusé / annulé. Contribution non enregistrée.');
+      localStorage.removeItem('last_payment_tx');
+      RETURN_TX = null;
+    } else {
+      // PENDING or unknown
+      // On laisse en mémoire pour re-sync plus tard.
+    }
+  }catch(e){
+    // ignore
+  }
+}
+
 async function init(){
   wire();
+
+  // Détecter un retour CinetPay (?cinetpay_return=1&transaction_id=...)
+  await handlePaymentReturn();
 
   if (token){
     try{
       await bootstrap();
+      await finalizePaymentIfNeeded();
       return;
     }catch{
       doLogout();
