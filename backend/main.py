@@ -970,7 +970,7 @@ def init_contribution_payment(payload: ContributionIn, request: Request, user=De
 
     base = get_public_base_url(request)
     notify_url = f"{base}/api/payments/cinetpay/notify"
-    return_url = f"{base}/cinetpay/return"
+    return_url = f"{base}/?cinetpay_return=1"
 
     transaction_id = "CONTR_" + uuid.uuid4().hex[:16]
     # customer info
@@ -1085,6 +1085,7 @@ def get_payment(transaction_id: str, user=Depends(current_user_dep)):
 
 
 @app.api_route("/cinetpay/return", methods=["GET","POST"])
+@app.api_route("/cinetpay/return/", methods=["GET","POST"], include_in_schema=False)
 async def cinetpay_return(request: Request):
     # CinetPay returns transaction_id via GET or POST x-www-form-urlencoded
     tx = request.query_params.get("transaction_id") or request.query_params.get("cpm_trans_id")
