@@ -535,6 +535,33 @@ def index():
     index_path = BASE_DIR / "frontend" / "index.html"
     return index_path.read_text(encoding="utf-8")
 
+@app.post("/", include_in_schema=False)
+async def index_post(request: Request):
+    """
+    CinetPay peut appeler l'URL de retour en POST.
+    On force donc une redirection 303 vers GET (même URL + paramètres),
+    pour éviter "Method Not Allowed" sur la route "/".
+    """
+    params = dict(request.query_params)
+    # Récupère aussi les paramètres POST (form-data) si CinetPay en envoie
+    try:
+        form = dict(await request.form())
+        # normalise transaction id si CinetPay utilise cpm_trans_id
+        if "transaction_id" not in form and "cpm_trans_id" in form:
+            form["transaction_id"] = form.get("cpm_trans_id")
+        params.update({k: v for k, v in form.items() if v is not None})
+    except Exception:
+        pass
+
+    # Si on reçoit un retour CinetPay, on force le flag pour que le frontend fasse le sync
+    if ("transaction_id" in params) and ("cinetpay_return" not in params):
+        params["cinetpay_return"] = "1"
+
+    from urllib.parse import urlencode
+    qs = urlencode(params, doseq=True)
+    url = "/" + (("?" + qs) if qs else "")
+    return RedirectResponse(url=url, status_code=303)
+
 # ---------------------------
 # Auth endpoints
 # ---------------------------
