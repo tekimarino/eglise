@@ -484,6 +484,146 @@ async function refreshReports(){
   setText("r_entrees", money(rep.total_entrees));
   setText("r_sorties", money(rep.total_sorties));
   setText("r_solde", money(rep.solde));
+
+  // Admin: Rapport contributions (filtrable)
+  // NOTE: use CURRENT.role ("role" is not a global here).
+  if (CURRENT?.role === 'ADMIN' && $("rc_tbl")){
+    try{
+      await initReportContribFilters();
+      // Charger le rapport une première fois
+      if (!window.__rc_loaded){
+        window.__rc_loaded = true;
+        await runContribReport();
+      }
+    }catch(e){ /* ignore */ }
+  }
+}
+
+// Robust init: makes sure config + members are loaded before filling filters.
+async function initReportContribFilters(){
+  if (!$("rc_rubrique")) return;
+
+  // Ensure CFG loaded (can be null if refreshReports is called before bootstrap completes)
+  if (!CFG){
+    try{ CFG = await api("/config"); }catch(e){ /* ignore */ }
+  }
+
+  // Ensure MEMBERS loaded for admin
+  if ((!MEMBERS || MEMBERS.length === 0) && CURRENT?.role === "ADMIN"){
+    try{ MEMBERS = await api("/members"); }catch(e){ /* ignore */ }
+  }
+
+  // Rubriques
+  const rubSel = $("rc_rubrique");
+  rubSel.innerHTML = "";
+  const optAllR = document.createElement("option");
+  optAllR.value = "ALL";
+  optAllR.textContent = "Toutes les rubriques";
+  rubSel.appendChild(optAllR);
+
+  // Build rubriques list from config + existing contributions (to avoid an empty list)
+  const rubSet = new Set();
+  (CFG?.rubriques || []).forEach(r=>{ if (String(r||"").trim()) rubSet.add(String(r).trim()); });
+  (CONTRIBUTIONS || []).forEach(c=>{ const r = String(c?.rubrique||"").trim(); if (r) rubSet.add(r); });
+  const rubs = Array.from(rubSet);
+  rubs.sort((a,b)=>a.localeCompare(b, 'fr', {sensitivity:'base'}));
+
+  rubs.forEach(r=>{
+    const o = document.createElement("option");
+    o.value = r;
+    o.textContent = r;
+    rubSel.appendChild(o);
+  });
+
+  // Membres
+  const memSel = $("rc_member");
+  memSel.innerHTML = "";
+  const optAllM = document.createElement("option");
+  optAllM.value = "ALL";
+  optAllM.textContent = "Tous les membres";
+  memSel.appendChild(optAllM);
+
+  // Only show members with an id; sort by name to keep it usable
+  const mems = (MEMBERS || []).filter(m => (m?.member_id || "").trim());
+  mems.sort((a,b)=>{
+    const an = `${a?.prenoms||""} ${a?.nom||""}`.trim();
+    const bn = `${b?.prenoms||""} ${b?.nom||""}`.trim();
+    return an.localeCompare(bn, 'fr', {sensitivity:'base'});
+  });
+  mems.forEach(m=>{
+    const o = document.createElement("option");
+    o.value = m.member_id;
+    o.textContent = `${m.prenoms||""} ${m.nom||""}`.trim() + (m.member_id ? ` (${m.member_id})` : "");
+    memSel.appendChild(o);
+  });
+}
+
+async function runContribReport(){
+  hide("rc_error"); setText("rc_error", "");
+  setText("rc_status", "Chargement…");
+  try{
+    const qs = new URLSearchParams();
+    const from = $("rc_from")?.value || "";
+    const to = $("rc_to")?.value || "";
+    const rub = $("rc_rubrique")?.value || "ALL";
+    const mid = $("rc_member")?.value || "ALL";
+    if (from) qs.set("start", from);
+    if (to) qs.set("end", to);
+    if (rub && rub !== "ALL") qs.set("rubrique", rub);
+    if (mid && mid !== "ALL") qs.set("member_id", mid);
+
+    const path = qs.toString() ? `/reports/contributions?${qs.toString()}` : "/reports/contributions";
+    const rep = await api(path);
+
+    setText("rc_total", money(rep.total_montant || 0));
+    setText("rc_count", String(rep.count || 0));
+
+    renderTable(
+      "rc_tbl",
+      ["Date", "Membre", "Type", "Lieu", "Montant", "Note"],
+      rep.rows || [],
+      r => `
+        <tr>
+          <td>${(r.date||"")}</td>
+          <td>${(r.personne||"") || `<code>${r.member_id||""}</code>`}</td>
+          <td><span class="badge">${r.rubrique||""}</span></td>
+          <td>${r.lieu||""}</td>
+          <td><b>${money(r.montant||0)}</b></td>
+          <td>${r.note||""}</td>
+        </tr>
+      `
+    );
+    setText("rc_status", "OK ✅");
+  }catch(e){
+    setText("rc_status", "");
+    setText("rc_error", e.message); show("rc_error");
+    renderEmpty("rc_tbl", "Aucune donnée.");
+  }
+}
+
+function getContribReportFilters(){
+  const from = $("rc_from")?.value || "";
+  const to = $("rc_to")?.value || "";
+  const rub = $("rc_rubrique")?.value || "ALL";
+  const mid = $("rc_member")?.value || "ALL";
+  return { start: from || null, end: to || null, rubrique: (rub && rub !== "ALL") ? rub : null, member_id: (mid && mid !== "ALL") ? mid : null };
+}
+
+async function exportReportContrib(kind){
+  // kind: 'pdf' | 'csv'
+  hide("rc_error"); setText("rc_error", "");
+  const label = kind === 'pdf' ? 'PDF' : 'CSV';
+  setText("rc_status", `Génération ${label}…`);
+  try{
+    const payload = getContribReportFilters();
+    const endpoint = kind === 'pdf' ? "/reports/contributions/export/pdf" : "/reports/contributions/export/csv";
+    const r = await api(endpoint, {method:"POST", body: JSON.stringify(payload)});
+    await downloadExportFile(r.file_id, kind);
+    setText("rc_status", `Export ${label} OK ✅`);
+  }catch(e){
+    setText("rc_status", "");
+    setText("rc_error", e.message); show("rc_error");
+  }
 }
 
 
@@ -901,6 +1041,19 @@ function wire(){
   $("btnReloadReports").addEventListener("click", refreshReports);
   $("btnExportPDF").addEventListener("click", exportPdf);
   $("btnExportXLSX").addEventListener("click", exportXlsx);
+
+  if ($("btnRunReportContrib")) $("btnRunReportContrib").addEventListener("click", runContribReport);
+  if ($("btnResetReportContrib")) $("btnResetReportContrib").addEventListener("click", ()=>{
+    if ($("rc_from")) $("rc_from").value = "";
+    if ($("rc_to")) $("rc_to").value = "";
+    if ($("rc_rubrique")) $("rc_rubrique").value = "ALL";
+    if ($("rc_member")) $("rc_member").value = "ALL";
+    runContribReport();
+  });
+
+  // Exports du rapport des contributions (liste filtrée)
+  if ($("btnExportReportContribPDF")) $("btnExportReportContribPDF").addEventListener("click", ()=> exportReportContrib('pdf'));
+  if ($("btnExportReportContribCSV")) $("btnExportReportContribCSV").addEventListener("click", ()=> exportReportContrib('csv'));
 
   if ($("btnReloadAccounts")) $("btnReloadAccounts").addEventListener("click", refreshAccounts);
   if ($("btnAdminCreateAccount")) $("btnAdminCreateAccount").addEventListener("click", adminCreateMemberAccount);

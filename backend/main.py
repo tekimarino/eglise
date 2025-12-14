@@ -1451,6 +1451,234 @@ def bilan_general(user=Depends(current_user_dep)):
         "last_depenses": latest(dep, 5),
     }
 
+
+@app.get("/api/reports/contributions")
+def report_contributions(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    rubrique: Optional[str] = None,
+    member_id: Optional[str] = None,
+    user=Depends(current_user_dep),
+):
+    """Admin report for contributions with filters: period, rubrique, member."""
+    require_admin(user)
+
+    out_rows, total = _build_contrib_report(start=start, end=end, rubrique=rubrique, member_id=member_id)
+    return {"total_montant": total, "count": len(out_rows), "rows": out_rows}
+
+
+def _build_contrib_report(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    rubrique: Optional[str] = None,
+    member_id: Optional[str] = None,
+) -> tuple[List[Dict[str, Any]], int]:
+    """Filter contributions and return (rows, total). Shared by report + exports."""
+
+    def parse_date(s: str) -> Optional[datetime.date]:
+        s = (s or "").strip()
+        if not s:
+            return None
+        try:
+            return datetime.date.fromisoformat(s)
+        except Exception:
+            return None
+
+    d_start = parse_date(start or "")
+    d_end = parse_date(end or "")
+
+    rows = read_csv_dicts(CONTRIB_CSV)
+
+    # Filters
+    if member_id and member_id != "ALL":
+        rows = [r for r in rows if (r.get("member_id") or "") == member_id]
+    if rubrique and rubrique != "ALL":
+        rows = [r for r in rows if (r.get("rubrique") or "") == rubrique]
+    if d_start or d_end:
+        filtered = []
+        for r in rows:
+            d = parse_date(r.get("date", ""))
+            # If filtering by period, ignore rows without valid date
+            if not d:
+                continue
+            if d_start and d < d_start:
+                continue
+            if d_end and d > d_end:
+                continue
+            filtered.append(r)
+        rows = filtered
+
+    # Sort (most recent first)
+    rows.sort(key=lambda r: ((r.get("date") or ""), (r.get("created_at") or "")), reverse=True)
+
+    out_rows: List[Dict[str, Any]] = []
+    total = 0
+    for r in rows:
+        try:
+            amt = int(float(r.get("montant", "0") or 0))
+        except Exception:
+            amt = 0
+        total += amt
+        personne = (f"{r.get('prenoms','')} {r.get('nom','')}").strip()
+        out_rows.append(
+            {
+                "id": r.get("id", ""),
+                "date": r.get("date", ""),
+                "member_id": r.get("member_id", ""),
+                "personne": personne,
+                "rubrique": r.get("rubrique", ""),
+                "lieu": r.get("lieu", ""),
+                "montant": amt,
+                "note": r.get("note", ""),
+                "created_at": r.get("created_at", ""),
+                "created_by": r.get("created_by", ""),
+            }
+        )
+
+    return out_rows, total
+
+
+class ContribReportExportRequest(BaseModel):
+    start: Optional[str] = None
+    end: Optional[str] = None
+    rubrique: Optional[str] = None
+    member_id: Optional[str] = None
+
+
+@app.post("/api/reports/contributions/export/csv")
+def export_report_contributions_csv(payload: ContribReportExportRequest, user=Depends(current_user_dep)):
+    """Export the filtered contributions report to CSV (admin only)."""
+    require_admin(user)
+    out_rows, total = _build_contrib_report(
+        start=payload.start,
+        end=payload.end,
+        rubrique=payload.rubrique,
+        member_id=payload.member_id,
+    )
+
+    file_id = "rc_csv_" + uuid.uuid4().hex[:10]
+    out = EXPORT_DIR / f"{file_id}.csv"
+
+    # Excel-friendly CSV for francophone locales
+    headers = ["date", "personne", "member_id", "rubrique", "lieu", "montant", "note"]
+    with out.open("w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f, delimiter=";")
+        w.writerow(["Rapport des contributions (filtré)"])
+        w.writerow([f"Généré le", utc_now(), "Utilisateur", f"{user.get('username','')} ({user.get('role','')})"])
+        w.writerow(["Total", total, "Nombre", len(out_rows)])
+        w.writerow([])
+        w.writerow(headers)
+        for r in out_rows:
+            w.writerow([
+                r.get("date",""),
+                r.get("personne",""),
+                r.get("member_id",""),
+                r.get("rubrique",""),
+                r.get("lieu",""),
+                r.get("montant",0),
+                r.get("note",""),
+            ])
+
+    return {"file_id": file_id}
+
+
+@app.post("/api/reports/contributions/export/pdf")
+def export_report_contributions_pdf(payload: ContribReportExportRequest, user=Depends(current_user_dep)):
+    """Export the filtered contributions report to PDF (portrait, admin only)."""
+    require_admin(user)
+    out_rows, total = _build_contrib_report(
+        start=payload.start,
+        end=payload.end,
+        rubrique=payload.rubrique,
+        member_id=payload.member_id,
+    )
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    file_id = "rc_pdf_" + uuid.uuid4().hex[:10]
+    out = EXPORT_DIR / f"{file_id}.pdf"
+    c = canvas.Canvas(str(out), pagesize=A4)
+    w, h = A4
+
+    title = "Rapport - Contributions (filtré)"
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(30, h-40, title)
+    c.setFont("Helvetica", 11)
+    c.drawString(30, h-65, f"Généré le: {utc_now()}   |   Utilisateur: {user['username']} ({user['role']})")
+
+    # Filter summary
+    f_from = (payload.start or "").strip()
+    f_to = (payload.end or "").strip()
+    f_rub = (payload.rubrique or "").strip()
+    f_mid = (payload.member_id or "").strip()
+    summary = []
+    if f_from or f_to:
+        summary.append(f"Période: {f_from or '...'} → {f_to or '...'}")
+    if f_rub:
+        summary.append(f"Type: {f_rub}")
+    if f_mid:
+        summary.append(f"Membre: {f_mid}")
+    if summary:
+        c.setFont("Helvetica", 10)
+        c.drawString(30, h-85, " | ".join(summary)[:110])
+
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30, h-110, f"Total: {total}    |    Nombre: {len(out_rows)}")
+
+    # Table (portrait A4)
+    y = h - 140
+    row_h = 14
+    xs = {
+        "date": 30,
+        "membre": 90,
+        "type": 220,
+        "lieu": 300,
+        "note": 370,
+        "montant_r": w - 30,
+    }
+
+    def header():
+        nonlocal y
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(xs["date"], y, "Date")
+        c.drawString(xs["membre"], y, "Membre")
+        c.drawString(xs["type"], y, "Type")
+        c.drawString(xs["lieu"], y, "Lieu")
+        c.drawString(xs["note"], y, "Note")
+        c.drawRightString(xs["montant_r"], y, "Montant")
+        y -= row_h
+        c.setFont("Helvetica", 9)
+
+    def new_page():
+        nonlocal y
+        c.showPage()
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(30, h-40, title)
+        c.setFont("Helvetica", 11)
+        c.drawString(30, h-65, f"Généré le: {utc_now()}   |   Utilisateur: {user['username']} ({user['role']})")
+        y = h - 90
+        header()
+
+    header()
+    for r in out_rows:
+        if y < 55:
+            new_page()
+        c.drawString(xs["date"], y, str(r.get("date", ""))[:10])
+        c.drawString(xs["membre"], y, str(r.get("personne", "") or r.get("member_id", ""))[:18])
+        c.drawString(xs["type"], y, str(r.get("rubrique", ""))[:14])
+        c.drawString(xs["lieu"], y, str(r.get("lieu", ""))[:10])
+        c.drawString(xs["note"], y, str(r.get("note", ""))[:28])
+        try:
+            amt = float(r.get("montant", 0) or 0)
+        except Exception:
+            amt = 0
+        c.drawRightString(xs["montant_r"], y, f"{amt:.2f}")
+        y -= row_h
+
+    c.save()
+    return {"file_id": file_id}
+
 # ---------------------------
 # Exports
 # ---------------------------
@@ -1633,8 +1861,8 @@ def export_xlsx(user=Depends(current_user_dep)):
 def download_file(file_id: str, user=Depends(current_user_dep)):
     # allow download of exports
     # only in exports dir
-    # try pdf then xlsx
-    for ext in (".pdf",".xlsx"):
+    # try pdf then xlsx then csv
+    for ext in (".pdf",".xlsx",".csv"):
         p = EXPORT_DIR / f"{file_id}{ext}"
         if p.exists():
             return FileResponse(str(p), filename=p.name)

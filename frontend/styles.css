@@ -139,6 +139,10 @@ input:focus,select:focus,textarea:focus{
   border: 1px dashed rgba(37,99,235,.25);border-radius: 14px;
 }
 .filters input{max-width:190px}
+.filters select{max-width:240px}
+
+/* Accessibilité : éléments visibles uniquement aux lecteurs d'écran */
+.sr-only{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;}
 
 .table{
   border:1px solid var(--border);

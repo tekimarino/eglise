@@ -260,6 +260,33 @@
           <div class="kpi admin-only"><div class="kpi-label">Total sorties</div><div class="kpi-value" id="r_sorties">0</div></div>
           <div class="kpi admin-only"><div class="kpi-label">Solde</div><div class="kpi-value" id="r_solde">0</div></div>
         </div>
+
+        <!-- Admin: Rapport des contributions (filtrable) -->
+        <div class="subcard admin-only">
+          <h3>Rapport des contributions</h3>
+          <div class="filters">
+            <strong>Filtres</strong>
+            <label class="sr-only" for="rc_from">Du</label>
+            <input id="rc_from" type="date" />
+            <label class="sr-only" for="rc_to">Au</label>
+            <input id="rc_to" type="date" />
+            <select id="rc_rubrique" title="Type de contribution"></select>
+            <select id="rc_member" title="Membre"></select>
+            <button class="btn secondary small" id="btnRunReportContrib">Appliquer</button>
+            <button class="btn secondary small" id="btnResetReportContrib">Reset</button>
+            <button class="btn small" id="btnExportReportContribPDF" title="Exporter la liste filtrée en PDF">Exporter PDF</button>
+            <button class="btn secondary small" id="btnExportReportContribCSV" title="Exporter la liste filtrée en CSV">Exporter CSV</button>
+            <span class="muted" id="rc_status"></span>
+          </div>
+
+          <div class="grid kpis" style="margin-top:0">
+            <div class="kpi"><div class="kpi-label">Total (filtre)</div><div class="kpi-value" id="rc_total">0</div></div>
+            <div class="kpi"><div class="kpi-label">Nombre</div><div class="kpi-value" id="rc_count">0</div></div>
+          </div>
+
+          <div class="table"><table id="rc_tbl"></table></div>
+          <div class="error hidden" id="rc_error"></div>
+        </div>
       </section>
 
       <!-- Admin: Membres & comptes -->
